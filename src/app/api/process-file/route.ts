@@ -3,15 +3,18 @@ import mammoth from 'mammoth';
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('API: Processing file request...');
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
     if (!file) {
+      console.log('API: No file provided');
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
     const fileName = file.name.toLowerCase();
     const fileType = file.type;
+    console.log('API: File received:', fileName, 'Type:', fileType, 'Size:', file.size);
     let content = '';
 
     // Handle .docx files with mammoth
@@ -19,9 +22,14 @@ export async function POST(request: NextRequest) {
       fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       fileName.endsWith('.docx')
     ) {
+      console.log('API: Processing .docx file with mammoth');
       const arrayBuffer = await file.arrayBuffer();
-      const result = await mammoth.extractRawText({ arrayBuffer });
+      // Convert ArrayBuffer to Buffer for Node.js mammoth
+      const buffer = Buffer.from(arrayBuffer);
+      console.log('API: Buffer created, size:', buffer.length);
+      const result = await mammoth.extractRawText({ buffer });
       content = result.value;
+      console.log('API: Mammoth extracted', content.length, 'characters');
 
       if (!content || content.trim().length === 0) {
         return NextResponse.json(

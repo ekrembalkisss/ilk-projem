@@ -44,39 +44,33 @@ export default function FileUpload({ onSourcesAdd, existingSources }: FileUpload
     return data.content;
   };
 
-  // Process file - use API for .docx, client-side for text files
+  // Process file - use API for binary formats, client-side for plain text only
   const processFile = async (file: File): Promise<string> => {
-    const fileType = file.type;
     const fileName = file.name.toLowerCase();
 
-    // Handle .docx files via server-side API (mammoth requires Node.js)
-    if (
-      fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-      fileName.endsWith('.docx')
-    ) {
+    // ALWAYS use server-side API for these binary formats (check extension FIRST)
+    if (fileName.endsWith('.docx') || fileName.endsWith('.doc') || fileName.endsWith('.pdf')) {
+      console.log('Processing via API:', fileName);
       return await processFileViaAPI(file);
     }
 
-    // Handle .doc files via server-side API
-    if (fileType === 'application/msword' || fileName.endsWith('.doc')) {
-      return await processFileViaAPI(file);
+    // Only handle plain text files client-side (.txt, .md, .csv)
+    if (fileName.endsWith('.txt') || fileName.endsWith('.md') || fileName.endsWith('.csv')) {
+      console.log('Processing client-side:', fileName);
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          resolve(content);
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsText(file);
+      });
     }
 
-    // Handle PDF files via server-side API
-    if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-      return await processFileViaAPI(file);
-    }
-
-    // Handle text-based files (txt, md, csv) - can be done client-side
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        resolve(content);
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsText(file);
-    });
+    // For any other file type, try the API first
+    console.log('Unknown format, trying API:', fileName);
+    return await processFileViaAPI(file);
   };
 
   const onDrop = useCallback(
