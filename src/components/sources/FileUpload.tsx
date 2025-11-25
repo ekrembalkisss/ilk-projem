@@ -6,7 +6,6 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, X, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { Source } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
-import mammoth from 'mammoth';
 
 interface FileUploadProps {
   onSourcesAdd: (sources: Source[]) => void;
@@ -26,60 +25,49 @@ export default function FileUpload({ onSourcesAdd, existingSources }: FileUpload
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Process file via server-side API for .docx and other complex formats
+  const processFileViaAPI = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/process-file', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to process file');
+    }
+
+    return data.content;
+  };
+
+  // Process file - use API for .docx, client-side for text files
   const processFile = async (file: File): Promise<string> => {
     const fileType = file.type;
     const fileName = file.name.toLowerCase();
 
-    // Handle .docx files with mammoth
+    // Handle .docx files via server-side API (mammoth requires Node.js)
     if (
       fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       fileName.endsWith('.docx')
     ) {
-      const arrayBuffer = await file.arrayBuffer();
-      const result = await mammoth.extractRawText({ arrayBuffer });
-      return result.value;
+      return await processFileViaAPI(file);
     }
 
-    // Handle .doc files (older Word format) - try to extract text
+    // Handle .doc files via server-side API
     if (fileType === 'application/msword' || fileName.endsWith('.doc')) {
-      // For .doc files, try reading as text (may not work perfectly)
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const content = e.target?.result as string;
-          // Filter out non-printable characters that might appear in .doc files
-          const cleanedContent = content.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ');
-          if (cleanedContent.trim().length < 50) {
-            reject(new Error('Could not extract text from .doc file. Please convert to .docx or .txt'));
-          }
-          resolve(cleanedContent);
-        };
-        reader.onerror = () => reject(new Error('Failed to read .doc file'));
-        reader.readAsText(file);
-      });
+      return await processFileViaAPI(file);
     }
 
-    // Handle PDF files
+    // Handle PDF files via server-side API
     if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-      // For PDF, we'll read as text (basic approach - in production use pdf.js)
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const content = e.target?.result as string;
-          // Try to extract readable text from PDF
-          const cleanedContent = content.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ');
-          if (cleanedContent.trim().length < 20) {
-            resolve(`[PDF file: ${file.name}] - PDF text extraction limited. For best results, copy text content manually.`);
-          } else {
-            resolve(cleanedContent);
-          }
-        };
-        reader.onerror = () => reject(new Error('Failed to read PDF file'));
-        reader.readAsText(file);
-      });
+      return await processFileViaAPI(file);
     }
 
-    // Handle text-based files (txt, md, csv)
+    // Handle text-based files (txt, md, csv) - can be done client-side
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -97,7 +85,7 @@ export default function FileUpload({ onSourcesAdd, existingSources }: FileUpload
 
       setIsProcessing(true);
 
-      // Create file entries
+      // Create file entries - each file gets its own unique ID
       const newFiles: UploadedFile[] = acceptedFiles.map((file) => ({
         id: uuidv4(),
         file,
@@ -107,15 +95,15 @@ export default function FileUpload({ onSourcesAdd, existingSources }: FileUpload
 
       setUploadedFiles((prev) => [...prev, ...newFiles]);
 
-      // Collect all successfully processed sources
+      // Collect all successfully processed sources - EACH FILE IS A SEPARATE SOURCE
       const processedSources: Source[] = [];
 
-      // Process each file
+      // Process each file individually
       for (let i = 0; i < newFiles.length; i++) {
         const uploadedFile = newFiles[i];
 
         try {
-          // Update progress
+          // Update progress animation
           for (let p = 0; p <= 60; p += 20) {
             await new Promise((resolve) => setTimeout(resolve, 50));
             setUploadedFiles((prev) =>
@@ -130,7 +118,7 @@ export default function FileUpload({ onSourcesAdd, existingSources }: FileUpload
             prev.map((f) => (f.id === uploadedFile.id ? { ...f, status: 'processing', progress: 70 } : f))
           );
 
-          // Process the file
+          // Process the file (via API or client-side)
           const content = await processFile(uploadedFile.file);
 
           // Update to complete
@@ -142,9 +130,9 @@ export default function FileUpload({ onSourcesAdd, existingSources }: FileUpload
             )
           );
 
-          // Add to processed sources
+          // Add this file as a SEPARATE source with its own unique ID
           processedSources.push({
-            id: uploadedFile.id,
+            id: uuidv4(), // New unique ID for the source
             type: 'upload',
             name: uploadedFile.file.name,
             content,
@@ -163,7 +151,7 @@ export default function FileUpload({ onSourcesAdd, existingSources }: FileUpload
         }
       }
 
-      // Add ALL successfully processed sources at once
+      // Add ALL successfully processed sources - each as a separate entry
       if (processedSources.length > 0) {
         onSourcesAdd(processedSources);
       }
@@ -229,7 +217,7 @@ export default function FileUpload({ onSourcesAdd, existingSources }: FileUpload
           </h3>
 
           <p className="text-gray-300 text-sm mb-4">
-            Drag & drop files or click to browse (supports multiple files)
+            Drag & drop files or click to browse (each file = separate source)
           </p>
 
           <div className="flex flex-wrap gap-2 justify-center">
@@ -323,13 +311,13 @@ export default function FileUpload({ onSourcesAdd, existingSources }: FileUpload
                     {file.status === 'processing' && (
                       <span className="flex items-center gap-1 text-xs text-amber-400">
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        Extracting text...
+                        Extracting text from document...
                       </span>
                     )}
                     {file.status === 'completed' && (
                       <span className="flex items-center gap-1 text-xs text-emerald-400">
                         <Check className="w-3 h-3" />
-                        Ready - {file.content?.split(/\s+/).length.toLocaleString()} words extracted
+                        Ready - {file.content?.split(/\s+/).filter(Boolean).length.toLocaleString()} words extracted
                       </span>
                     )}
                     {file.status === 'error' && (
