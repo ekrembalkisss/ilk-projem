@@ -14,6 +14,7 @@ import {
   CheckCircle,
   XCircle,
   HelpCircle,
+  ArrowRight,
 } from 'lucide-react';
 import {
   VideoInfo,
@@ -26,6 +27,7 @@ import {
 } from '@/types';
 import Card from '../ui/Card';
 import ProgressRing from '../ui/ProgressRing';
+import Button from '../ui/Button';
 import { v4 as uuidv4 } from 'uuid';
 
 interface GateTwoProps {
@@ -63,6 +65,7 @@ export default function GateTwo({
   const [isComplete, setIsComplete] = useState(false);
   const [currentSegment, setCurrentSegment] = useState<string>('');
   const [humanThoughts, setHumanThoughts] = useState<string[]>([]);
+  const [generatedReport, setGeneratedReport] = useState<OverallReport | null>(null);
 
   const stages: AnalysisStage[] = [
     {
@@ -305,13 +308,12 @@ export default function GateTwo({
         timestamp: new Date(),
       };
 
-      setTimeout(() => {
-        onComplete(report);
-      }, 2000);
+      // Store the report - user will click button to view it
+      setGeneratedReport(report);
     };
 
     processGateTwo();
-  }, [videoInfo, extractedFacts, onComplete, simulateStage, generateAnalysisResults]);
+  }, [videoInfo, extractedFacts, simulateStage, generateAnalysisResults]);
 
   const getStatusIcon = (status: AnalysisResult['status']) => {
     switch (status) {
@@ -542,6 +544,58 @@ export default function GateTwo({
                 ))}
               </div>
             </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* View Report Button - appears when analysis is complete */}
+      <AnimatePresence>
+        {isComplete && generatedReport && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="flex flex-col items-center gap-4"
+          >
+            <Card className="p-6 w-full" glow gradient>
+              <div className="text-center">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', delay: 0.2 }}
+                  className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center"
+                >
+                  <CheckCircle className="w-8 h-8 text-emerald-400" />
+                </motion.div>
+                <h3 className="text-2xl font-bold text-white mb-2">Analysis Complete!</h3>
+                <p className="text-white/60 mb-6">
+                  Your script has been analyzed. View the full report with detailed feedback and recommendations.
+                </p>
+                <div className="flex flex-wrap justify-center gap-4">
+                  <div className="px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                    <span className="text-emerald-400 font-semibold">{generatedReport.summary.verifiedClaims}</span>
+                    <span className="text-white/60 ml-2">Verified</span>
+                  </div>
+                  <div className="px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <span className="text-amber-400 font-semibold">{generatedReport.summary.warningClaims}</span>
+                    <span className="text-white/60 ml-2">Warnings</span>
+                  </div>
+                  <div className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30">
+                    <span className="text-red-400 font-semibold">{generatedReport.summary.errorClaims}</span>
+                    <span className="text-white/60 ml-2">Issues</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            <Button
+              size="lg"
+              onClick={() => onComplete(generatedReport)}
+              icon={<ArrowRight className="w-5 h-5" />}
+              className="min-w-[250px]"
+            >
+              View Full Report
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>

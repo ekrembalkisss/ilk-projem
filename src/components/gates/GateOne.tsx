@@ -12,10 +12,12 @@ import {
   Eye,
   AlertTriangle,
   FileText,
+  ArrowRight,
 } from 'lucide-react';
 import { Source, ExtractedFact, FactCategory } from '@/types';
 import Card from '../ui/Card';
 import ProgressRing from '../ui/ProgressRing';
+import Button from '../ui/Button';
 import { v4 as uuidv4 } from 'uuid';
 
 interface GateOneProps {
@@ -64,6 +66,7 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
   const [scannedContent, setScannedContent] = useState<string[]>([]);
   const [totalWords, setTotalWords] = useState(0);
   const [processedWords, setProcessedWords] = useState(0);
+  const [finalFacts, setFinalFacts] = useState<ExtractedFact[]>([]);
 
   const stages: ProcessingStage[] = [
     {
@@ -156,14 +159,12 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
       setIsComplete(true);
       setCurrentlyScanning('Analysis complete!');
 
-      // Auto-continue after a short delay
-      setTimeout(() => {
-        onComplete(facts);
-      }, 2000);
+      // Store facts - user will click button to continue
+      setFinalFacts(facts);
     };
 
     processGateOne();
-  }, [sources, onComplete]);
+  }, [sources]);
 
   const simulateStage = async (startProgress: number, endProgress: number) => {
     const steps = 20;
@@ -540,6 +541,45 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
           </div>
         </motion.div>
       )}
+
+      {/* Continue Button - appears when extraction is complete */}
+      <AnimatePresence>
+        {isComplete && finalFacts.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="flex flex-col items-center gap-4"
+          >
+            <Card className="p-6 w-full" glow gradient>
+              <div className="text-center">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', delay: 0.2 }}
+                  className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center"
+                >
+                  <Sparkles className="w-8 h-8 text-emerald-400" />
+                </motion.div>
+                <h3 className="text-2xl font-bold text-white mb-2">Extraction Complete!</h3>
+                <p className="text-white/60 mb-4">
+                  {finalFacts.length} facts extracted from {sources.length} source{sources.length !== 1 ? 's' : ''}.
+                  Ready to enter your video details and script.
+                </p>
+              </div>
+            </Card>
+
+            <Button
+              size="lg"
+              onClick={() => onComplete(finalFacts)}
+              icon={<ArrowRight className="w-5 h-5" />}
+              className="min-w-[250px]"
+            >
+              Continue to Video Details
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
