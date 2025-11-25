@@ -136,87 +136,167 @@ export default function GateTwo({
     }
   }, []);
 
-  const generateAnalysisResults = useCallback((script: string, facts: ExtractedFact[]): AnalysisResult[] => {
-    // Split script into segments (by paragraphs or ~100 words)
-    const segments = script
-      .split(/\n\n+/)
-      .flatMap((para) => {
-        const words = para.split(/\s+/);
-        if (words.length <= 100) return [para];
-        const chunks = [];
-        for (let i = 0; i < words.length; i += 100) {
-          chunks.push(words.slice(i, i + 100).join(' '));
-        }
-        return chunks;
-      })
-      .filter((s) => s.trim().length > 20);
+  // Check if a sentence contains factual claims that need verification
+  const isFactualClaim = (sentence: string): boolean => {
+    const trimmed = sentence.trim().toLowerCase();
 
-    return segments.map((segment) => {
-      // Randomly match some facts to simulate real analysis
-      const matchedFacts: MatchedFact[] = facts
-        .slice(0, Math.floor(Math.random() * 3) + 1)
-        .map((fact) => ({
+    // Skip very short sentences (likely reactions/filler)
+    if (trimmed.length < 15 || trimmed.split(/\s+/).length < 4) return false;
+
+    // Non-factual patterns (narrative, humor, reactions, filler)
+    const nonFactualPatterns = [
+      /^(genius|poor guy|poof|go on|that's wild|what a moment|wow|oh no|yikes|oops)$/i,
+      /^(i am|i'm) (jealous|excited|scared|amazed|shocked)/i,
+      /^(right\?|you know\?|get it\?|guess what)$/i,
+      /think of (him|her|it|them) as/i,
+      /gotta .+, right\?$/i,
+      /not even .+ can/i,
+      /what kind of .+ would/i,
+    ];
+
+    for (const pattern of nonFactualPatterns) {
+      if (pattern.test(trimmed)) return false;
+    }
+
+    // Factual indicators - sentences that likely contain verifiable claims
+    const factualIndicators = [
+      /\b\d+[\d,\.%]*\b/, // Numbers, percentages
+      /\b(is|are|was|were|has|have|had)\b.*\b(a|an|the)\b/i, // Definitional statements
+      /\b(class|type|category|level)\b/i, // Classifications
+      /\b(carries|holds|contains|includes)\b/i, // Descriptions of contents
+      /\b(known|called|named|belongs)\b/i, // Identity statements
+      /\b(years?|months?|days?|times?|centuries?)\b/i, // Time references
+      /\b(no less than|at least|more than|over|under)\b/i, // Quantifiers
+      /\b(escaped|discovered|found|created|established)\b/i, // Events
+      /\b(because|due to|causes?|effects?|results?)\b/i, // Causal claims
+      /\b(always|never|every|all|none)\b/i, // Absolute claims
+    ];
+
+    for (const pattern of factualIndicators) {
+      if (pattern.test(trimmed)) return true;
+    }
+
+    return false;
+  };
+
+  // Calculate text similarity between two strings (simple but effective)
+  const calculateSimilarity = (text1: string, text2: string): number => {
+    const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 2);
+    const words1 = new Set(normalize(text1));
+    const words2 = new Set(normalize(text2));
+
+    if (words1.size === 0 || words2.size === 0) return 0;
+
+    let matches = 0;
+    words1.forEach(word => {
+      if (words2.has(word)) matches++;
+    });
+
+    // Jaccard-like similarity
+    const union = new Set([...words1, ...words2]).size;
+    return matches / union;
+  };
+
+  // Find matching facts for a sentence
+  const findMatchingFacts = (sentence: string, facts: ExtractedFact[]): MatchedFact[] => {
+    const matches: MatchedFact[] = [];
+
+    for (const fact of facts) {
+      const similarity = calculateSimilarity(sentence, fact.fact);
+
+      // Only include if similarity is above threshold
+      if (similarity > 0.15) {
+        matches.push({
           factId: fact.id,
           fact: fact.fact,
-          matchConfidence: Math.random() * 0.4 + 0.6,
+          matchConfidence: Math.min(similarity * 2, 0.99), // Scale up but cap at 99%
           sourceName: fact.sourceName,
-        }));
-
-      // Generate potential issues
-      const issues: Issue[] = [];
-      const issueChance = Math.random();
-
-      if (issueChance > 0.7) {
-        const issueTypes: IssueType[] = [
-          'factual-error',
-          'missing-source',
-          'outdated-info',
-          'exaggeration',
-          'misattribution',
-          'inconsistency',
-          'unverifiable-claim',
-        ];
-        const randomType = issueTypes[Math.floor(Math.random() * issueTypes.length)];
-        issues.push({
-          type: randomType,
-          description: `Potential ${issueTypeLabels[randomType].toLowerCase()} detected in this segment`,
-          severity: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)] as 'low' | 'medium' | 'high',
-          suggestion: `Consider revising this section to align with verified source information`,
         });
       }
+    }
 
-      // Determine status
-      let status: AnalysisResult['status'] = 'verified';
-      if (issues.length > 0) {
-        const maxSeverity = Math.max(
-          ...issues.map((i) => (i.severity === 'high' ? 3 : i.severity === 'medium' ? 2 : 1))
-        );
-        status = maxSeverity === 3 ? 'error' : maxSeverity === 2 ? 'warning' : 'verified';
-      } else if (matchedFacts.length === 0) {
-        status = 'unverified';
+    // Sort by confidence and return top matches
+    return matches.sort((a, b) => b.matchConfidence - a.matchConfidence).slice(0, 3);
+  };
+
+  // Generate human insight based on analysis
+  const generateHumanInsight = (sentence: string, matches: MatchedFact[], hasIssues: boolean): string => {
+    if (matches.length === 0) {
+      return "This claim could not be verified against the provided sources. Consider adding supporting evidence.";
+    }
+
+    const topMatch = matches[0];
+    if (topMatch.matchConfidence > 0.6) {
+      return `This claim is well-supported by the source "${topMatch.sourceName}". The information aligns with verified data.`;
+    } else if (topMatch.matchConfidence > 0.3) {
+      return `Partial match found in sources. Some details align, but additional verification may be needed.`;
+    } else {
+      return "Weak source alignment detected. Consider cross-referencing with additional sources.";
+    }
+  };
+
+  const generateAnalysisResults = useCallback((script: string, facts: ExtractedFact[]): AnalysisResult[] => {
+    // Split script into individual sentences
+    const sentences = script
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 10);
+
+    const results: AnalysisResult[] = [];
+
+    for (const sentence of sentences) {
+      // Check if this sentence contains factual claims
+      if (!isFactualClaim(sentence)) {
+        // Skip non-factual sentences (narrative, humor, etc.)
+        continue;
       }
 
-      // Generate human insight
-      const insights = [
-        "This section looks solid. The claims are well-supported by the sources.",
-        "I'd recommend adding a source citation here for credibility.",
-        "The data checks out, but consider updating to more recent figures.",
-        "Good use of expert quotes. Properly attributed.",
-        "This claim needs stronger source backing. Consider revising.",
-        "Well-researched section. The facts align with multiple sources.",
-        "Minor concern: the comparison could be more nuanced.",
-        "Strong factual foundation. No issues detected.",
-      ];
+      // Find matching facts from sources
+      const matchedFacts = findMatchingFacts(sentence, facts);
 
-      return {
+      // Determine issues based on actual matching
+      const issues: Issue[] = [];
+      let status: AnalysisResult['status'] = 'verified';
+
+      if (matchedFacts.length === 0) {
+        // No source support found
+        issues.push({
+          type: 'unverifiable-claim',
+          description: 'No supporting evidence found in provided sources for this claim.',
+          severity: 'medium',
+          suggestion: 'Add a source that supports this claim or remove/revise the statement.',
+        });
+        status = 'unverified';
+      } else if (matchedFacts[0].matchConfidence < 0.3) {
+        // Weak match
+        issues.push({
+          type: 'missing-source',
+          description: 'Only weak source alignment found. The claim may need stronger verification.',
+          severity: 'low',
+          suggestion: 'Consider adding more specific source material to support this claim.',
+        });
+        status = 'warning';
+      } else if (matchedFacts[0].matchConfidence >= 0.5) {
+        // Strong match - verified
+        status = 'verified';
+      } else {
+        // Moderate match
+        status = 'verified';
+      }
+
+      const humanInsight = generateHumanInsight(sentence, matchedFacts, issues.length > 0);
+
+      results.push({
         id: uuidv4(),
-        scriptSegment: segment,
+        scriptSegment: sentence,
         matchedFacts,
         issues,
         status,
-        humanInsight: insights[Math.floor(Math.random() * insights.length)],
-      };
-    });
+        humanInsight,
+      });
+    }
+
+    return results;
   }, []);
 
   useEffect(() => {
