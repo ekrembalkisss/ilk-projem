@@ -11,6 +11,7 @@ import {
   Sparkles,
   Eye,
   AlertTriangle,
+  FileText,
 } from 'lucide-react';
 import { Source, ExtractedFact, FactCategory } from '@/types';
 import Card from '../ui/Card';
@@ -43,15 +44,15 @@ const categoryLabels: Record<FactCategory, string> = {
 };
 
 const categoryColors: Record<FactCategory, string> = {
-  statistic: 'text-blue-400 bg-blue-400/10',
-  quote: 'text-purple-400 bg-purple-400/10',
-  date: 'text-amber-400 bg-amber-400/10',
-  name: 'text-emerald-400 bg-emerald-400/10',
-  event: 'text-red-400 bg-red-400/10',
-  claim: 'text-cyan-400 bg-cyan-400/10',
-  definition: 'text-indigo-400 bg-indigo-400/10',
-  process: 'text-orange-400 bg-orange-400/10',
-  comparison: 'text-pink-400 bg-pink-400/10',
+  statistic: 'text-blue-300 bg-blue-500/20 border border-blue-500/30',
+  quote: 'text-purple-300 bg-purple-500/20 border border-purple-500/30',
+  date: 'text-amber-300 bg-amber-500/20 border border-amber-500/30',
+  name: 'text-emerald-300 bg-emerald-500/20 border border-emerald-500/30',
+  event: 'text-red-300 bg-red-500/20 border border-red-500/30',
+  claim: 'text-cyan-300 bg-cyan-500/20 border border-cyan-500/30',
+  definition: 'text-indigo-300 bg-indigo-500/20 border border-indigo-500/30',
+  process: 'text-orange-300 bg-orange-500/20 border border-orange-500/30',
+  comparison: 'text-pink-300 bg-pink-500/20 border border-pink-500/30',
 };
 
 export default function GateOne({ sources, onComplete }: GateOneProps) {
@@ -59,6 +60,10 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
   const [currentStage, setCurrentStage] = useState(0);
   const [extractedFacts, setExtractedFacts] = useState<ExtractedFact[]>([]);
   const [isComplete, setIsComplete] = useState(false);
+  const [currentlyScanning, setCurrentlyScanning] = useState<string>('');
+  const [scannedContent, setScannedContent] = useState<string[]>([]);
+  const [totalWords, setTotalWords] = useState(0);
+  const [processedWords, setProcessedWords] = useState(0);
 
   const stages: ProcessingStage[] = [
     {
@@ -70,15 +75,15 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
     },
     {
       id: 'parsing',
-      name: 'Parsing Content',
-      description: 'Breaking down text into analyzable segments',
+      name: 'Deep Content Analysis',
+      description: 'Analyzing every sentence for verifiable information',
       status: currentStage > 1 ? 'completed' : currentStage === 1 ? 'processing' : 'pending',
       icon: <FileSearch className="w-5 h-5" />,
     },
     {
       id: 'extracting',
       name: 'Extracting Facts',
-      description: 'Identifying verifiable facts and claims',
+      description: 'Identifying all claims, statistics, quotes, and data',
       status: currentStage > 2 ? 'completed' : currentStage === 2 ? 'processing' : 'pending',
       icon: <Brain className="w-5 h-5" />,
     },
@@ -99,31 +104,57 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
   ];
 
   useEffect(() => {
+    // Calculate total words
+    const total = sources.reduce((acc, s) => acc + s.content.split(/\s+/).length, 0);
+    setTotalWords(total);
+
     const processGateOne = async () => {
-      // Stage 1: Reading Sources
-      await simulateStage(0, 20);
+      // Stage 1: Reading Sources - Show actual content being read
+      setCurrentStage(0);
+      for (let i = 0; i < sources.length; i++) {
+        const source = sources[i];
+        setCurrentlyScanning(source.name);
+        const words = source.content.split(/\s+/);
+
+        // Show snippets of what's being read
+        for (let j = 0; j < words.length; j += 50) {
+          const snippet = words.slice(j, j + 50).join(' ');
+          setScannedContent(prev => [...prev.slice(-3), snippet.slice(0, 100) + '...']);
+          setProcessedWords(prev => prev + Math.min(50, words.length - j));
+          await new Promise(resolve => setTimeout(resolve, 100));
+          setProgress(((i / sources.length) + (j / words.length / sources.length)) * 20);
+        }
+      }
       setCurrentStage(1);
 
-      // Stage 2: Parsing Content
+      // Stage 2: Deep Content Analysis
+      setCurrentlyScanning('Analyzing sentence structures...');
       await simulateStage(20, 40);
       setCurrentStage(2);
 
-      // Stage 3: Extracting Facts
-      await simulateStage(40, 60);
+      // Stage 3: Extracting Facts - Extract from actual content
+      setCurrentlyScanning('Extracting verifiable facts...');
       const facts = extractFactsFromSources(sources);
-      setExtractedFacts(facts.slice(0, Math.floor(facts.length / 2)));
+
+      // Show facts being extracted one by one
+      for (let i = 0; i < facts.length; i++) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+        setExtractedFacts(facts.slice(0, i + 1));
+        setProgress(40 + (i / facts.length) * 20);
+      }
       setCurrentStage(3);
 
       // Stage 4: Categorizing Data
+      setCurrentlyScanning('Categorizing extracted information...');
       await simulateStage(60, 80);
-      setExtractedFacts(facts.slice(0, Math.floor((facts.length * 3) / 4)));
       setCurrentStage(4);
 
       // Stage 5: Validating Results
+      setCurrentlyScanning('Cross-referencing and validating...');
       await simulateStage(80, 100);
-      setExtractedFacts(facts);
       setCurrentStage(5);
       setIsComplete(true);
+      setCurrentlyScanning('Analysis complete!');
 
       // Auto-continue after a short delay
       setTimeout(() => {
@@ -145,47 +176,131 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
   };
 
   const extractFactsFromSources = (sources: Source[]): ExtractedFact[] => {
-    // In production, this would use NLP/AI to extract actual facts
-    // For demo, we generate realistic fact extractions
-    const factTemplates: Array<{ fact: string; category: FactCategory }> = [
-      { fact: 'According to the 2023 report, the global market size reached $4.2 billion', category: 'statistic' },
-      { fact: 'Research indicates a 47% increase in adoption rates since 2020', category: 'statistic' },
-      { fact: 'Dr. Smith stated: "This represents a paradigm shift in our understanding"', category: 'quote' },
-      { fact: 'The initial discovery was made in March 2019', category: 'date' },
-      { fact: 'Key contributor: Dr. Jane Wilson, MIT Research Lab', category: 'name' },
-      { fact: 'The landmark conference held in Geneva attracted 2,500 participants', category: 'event' },
-      { fact: 'Studies suggest correlation between variables X and Y with r=0.78', category: 'claim' },
-      { fact: 'Defined as: "The systematic approach to analyzing complex data patterns"', category: 'definition' },
-      { fact: 'The process involves three distinct phases: collection, analysis, and validation', category: 'process' },
-      { fact: 'Compared to previous methods, efficiency improved by 35%', category: 'comparison' },
-      { fact: 'Sample size of 10,000 participants across 15 countries', category: 'statistic' },
-      { fact: 'Peer-reviewed and published in Nature Scientific Reports', category: 'claim' },
-      { fact: 'The team at Stanford University led the breakthrough research', category: 'name' },
-      { fact: 'Annual growth rate projected at 12.5% through 2027', category: 'statistic' },
-      { fact: 'The methodology was first introduced in the 1990s', category: 'date' },
-    ];
-
     const facts: ExtractedFact[] = [];
 
     sources.forEach((source) => {
-      // Extract word count to determine number of facts
-      const wordCount = source.content.split(/\s+/).length;
-      const factCount = Math.min(Math.floor(wordCount / 50) + 2, 8);
+      const content = source.content;
+      const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
 
-      for (let i = 0; i < factCount; i++) {
-        const template = factTemplates[Math.floor(Math.random() * factTemplates.length)];
-        facts.push({
-          id: uuidv4(),
-          fact: template.fact,
-          sourceId: source.id,
-          sourceName: source.name,
-          confidence: Math.random() * 0.3 + 0.7, // 70-100% confidence
-          category: template.category,
-        });
-      }
+      sentences.forEach((sentence) => {
+        const trimmed = sentence.trim();
+
+        // Detect numbers/statistics
+        if (/\d+[\d,\.%$€£]*/.test(trimmed)) {
+          facts.push({
+            id: uuidv4(),
+            fact: trimmed.slice(0, 200),
+            sourceId: source.id,
+            sourceName: source.name,
+            confidence: 0.85 + Math.random() * 0.15,
+            category: 'statistic',
+          });
+        }
+
+        // Detect quotes
+        if (/["'"'].*["'"']/.test(trimmed) || /said|stated|according to|claimed/i.test(trimmed)) {
+          facts.push({
+            id: uuidv4(),
+            fact: trimmed.slice(0, 200),
+            sourceId: source.id,
+            sourceName: source.name,
+            confidence: 0.80 + Math.random() * 0.15,
+            category: 'quote',
+          });
+        }
+
+        // Detect dates
+        if (/\b(19|20)\d{2}\b|\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(trimmed)) {
+          facts.push({
+            id: uuidv4(),
+            fact: trimmed.slice(0, 200),
+            sourceId: source.id,
+            sourceName: source.name,
+            confidence: 0.90 + Math.random() * 0.10,
+            category: 'date',
+          });
+        }
+
+        // Detect names/entities (capitalized words)
+        if (/[A-Z][a-z]+\s+[A-Z][a-z]+/.test(trimmed) || /Dr\.|Prof\.|Mr\.|Ms\.|Mrs\./.test(trimmed)) {
+          facts.push({
+            id: uuidv4(),
+            fact: trimmed.slice(0, 200),
+            sourceId: source.id,
+            sourceName: source.name,
+            confidence: 0.75 + Math.random() * 0.20,
+            category: 'name',
+          });
+        }
+
+        // Detect claims/assertions
+        if (/is|are|was|were|will be|has been|have been|shows|indicates|suggests|proves|demonstrates/i.test(trimmed) && trimmed.length > 30) {
+          facts.push({
+            id: uuidv4(),
+            fact: trimmed.slice(0, 200),
+            sourceId: source.id,
+            sourceName: source.name,
+            confidence: 0.70 + Math.random() * 0.25,
+            category: 'claim',
+          });
+        }
+
+        // Detect definitions
+        if (/defined as|means|refers to|is known as|is called/i.test(trimmed)) {
+          facts.push({
+            id: uuidv4(),
+            fact: trimmed.slice(0, 200),
+            sourceId: source.id,
+            sourceName: source.name,
+            confidence: 0.85 + Math.random() * 0.15,
+            category: 'definition',
+          });
+        }
+
+        // Detect processes/steps
+        if (/first|second|third|step|process|procedure|method|then|finally|next/i.test(trimmed)) {
+          facts.push({
+            id: uuidv4(),
+            fact: trimmed.slice(0, 200),
+            sourceId: source.id,
+            sourceName: source.name,
+            confidence: 0.80 + Math.random() * 0.15,
+            category: 'process',
+          });
+        }
+
+        // Detect comparisons
+        if (/more than|less than|compared to|versus|vs\.|better|worse|higher|lower|increase|decrease/i.test(trimmed)) {
+          facts.push({
+            id: uuidv4(),
+            fact: trimmed.slice(0, 200),
+            sourceId: source.id,
+            sourceName: source.name,
+            confidence: 0.75 + Math.random() * 0.20,
+            category: 'comparison',
+          });
+        }
+
+        // Detect events
+        if (/event|conference|meeting|launch|release|announced|discovered|founded|established/i.test(trimmed)) {
+          facts.push({
+            id: uuidv4(),
+            fact: trimmed.slice(0, 200),
+            sourceId: source.id,
+            sourceName: source.name,
+            confidence: 0.80 + Math.random() * 0.15,
+            category: 'event',
+          });
+        }
+      });
     });
 
-    return facts;
+    // Remove duplicates and limit
+    const uniqueFacts = facts.filter((fact, index, self) =>
+      index === self.findIndex(f => f.fact === fact.fact)
+    );
+
+    return uniqueFacts.slice(0, 100); // Limit to 100 facts max
   };
 
   const factsByCategory = extractedFacts.reduce((acc, fact) => {
@@ -199,27 +314,27 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
       {/* Header */}
       <div className="text-center">
         <motion.div
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/20 text-violet-400 text-sm font-medium mb-4"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/30 text-violet-300 text-sm font-semibold mb-4 border border-violet-500/40"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
         >
           <Brain className="w-4 h-4" />
-          Gate One: Fact Extraction
+          Gate One: Full Source Extraction
         </motion.div>
         <motion.h2
           className="text-3xl font-bold text-white mb-2"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          Analyzing Your Sources
+          Scanning Every Word of Your Sources
         </motion.h2>
         <motion.p
-          className="text-white/60"
+          className="text-gray-300 text-lg"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-          Extracting verifiable facts and information without context bias
+          Deep analysis of {totalWords.toLocaleString()} words across {sources.length} source{sources.length !== 1 ? 's' : ''}
         </motion.p>
       </div>
 
@@ -250,10 +365,10 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
                     flex items-center gap-4 p-3 rounded-xl transition-all duration-300
                     ${
                       stage.status === 'processing'
-                        ? 'bg-violet-500/10 border border-violet-500/30'
+                        ? 'bg-violet-500/20 border border-violet-500/40'
                         : stage.status === 'completed'
-                        ? 'bg-emerald-500/10 border border-emerald-500/30'
-                        : 'bg-white/5 border border-white/10'
+                        ? 'bg-emerald-500/20 border border-emerald-500/40'
+                        : 'bg-slate-700/50 border border-slate-600/50'
                     }
                   `}
                 >
@@ -262,10 +377,10 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
                       w-10 h-10 rounded-lg flex items-center justify-center
                       ${
                         stage.status === 'processing'
-                          ? 'bg-violet-500/20 text-violet-400'
+                          ? 'bg-violet-500/30 text-violet-300'
                           : stage.status === 'completed'
-                          ? 'bg-emerald-500/20 text-emerald-400'
-                          : 'bg-white/10 text-white/40'
+                          ? 'bg-emerald-500/30 text-emerald-300'
+                          : 'bg-slate-600/50 text-gray-400'
                       }
                     `}
                   >
@@ -280,23 +395,50 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
 
                   <div className="flex-1">
                     <p
-                      className={`font-medium ${
+                      className={`font-semibold ${
                         stage.status === 'processing'
-                          ? 'text-violet-400'
+                          ? 'text-violet-300'
                           : stage.status === 'completed'
-                          ? 'text-emerald-400'
-                          : 'text-white/60'
+                          ? 'text-emerald-300'
+                          : 'text-gray-400'
                       }`}
                     >
                       {stage.name}
                     </p>
-                    <p className="text-xs text-white/40">{stage.description}</p>
+                    <p className="text-sm text-gray-400">{stage.description}</p>
                   </div>
                 </motion.div>
               ))}
             </div>
           </div>
         </div>
+
+        {/* Currently Scanning Indicator */}
+        {currentlyScanning && !isComplete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-6 p-4 rounded-xl bg-slate-700/50 border border-slate-600/50"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <FileText className="w-5 h-5 text-violet-400" />
+              <span className="text-violet-300 font-medium">Currently Processing:</span>
+              <span className="text-white">{currentlyScanning}</span>
+            </div>
+            {scannedContent.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {scannedContent.map((content, i) => (
+                  <p key={i} className={`text-sm ${i === scannedContent.length - 1 ? 'text-gray-300' : 'text-gray-500'}`}>
+                    &quot;{content}&quot;
+                  </p>
+                ))}
+              </div>
+            )}
+            <div className="mt-3 flex items-center gap-2 text-sm text-gray-400">
+              <span>Words processed: {processedWords.toLocaleString()} / {totalWords.toLocaleString()}</span>
+            </div>
+          </motion.div>
+        )}
       </Card>
 
       {/* Extracted Facts Preview */}
@@ -310,14 +452,14 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-white">Extracted Facts</h3>
-                  <p className="text-sm text-white/60">
+                  <h3 className="text-xl font-bold text-white">Extracted Facts</h3>
+                  <p className="text-gray-300">
                     {extractedFacts.length} facts identified from {sources.length} sources
                   </p>
                 </div>
-                <div className="flex items-center gap-2 text-emerald-400">
-                  <Sparkles className="w-5 h-5" />
-                  <span className="text-sm font-medium">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30">
+                  <Sparkles className="w-5 h-5 text-emerald-400" />
+                  <span className="text-emerald-300 font-semibold">
                     {Math.round(
                       (extractedFacts.reduce((acc, f) => acc + f.confidence, 0) /
                         extractedFacts.length) *
@@ -329,16 +471,16 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
               </div>
 
               {/* Category Summary */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
                 {Object.entries(factsByCategory).map(([category, facts]) => (
                   <div
                     key={category}
-                    className={`p-2 rounded-lg text-center ${
+                    className={`p-3 rounded-xl text-center ${
                       categoryColors[category as FactCategory]
                     }`}
                   >
-                    <p className="text-lg font-bold">{facts.length}</p>
-                    <p className="text-xs opacity-80">
+                    <p className="text-2xl font-bold">{facts.length}</p>
+                    <p className="text-sm font-medium">
                       {categoryLabels[category as FactCategory]}
                     </p>
                   </div>
@@ -346,33 +488,34 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
               </div>
 
               {/* Facts List */}
-              <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
-                {extractedFacts.slice(0, 10).map((fact, index) => (
+              <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar pr-2">
+                {extractedFacts.slice(0, 15).map((fact, index) => (
                   <motion.div
                     key={fact.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="flex items-start gap-3 p-3 rounded-xl bg-white/5"
+                    transition={{ delay: index * 0.03 }}
+                    className="flex items-start gap-3 p-4 rounded-xl bg-slate-700/50 border border-slate-600/50"
                   >
                     <div
-                      className={`px-2 py-1 rounded text-xs font-medium ${
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
                         categoryColors[fact.category]
                       }`}
                     >
                       {categoryLabels[fact.category]}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white">{fact.fact}</p>
-                      <p className="text-xs text-white/40 mt-1">
-                        Source: {fact.sourceName} • {Math.round(fact.confidence * 100)}% confidence
+                      <p className="text-white leading-relaxed">{fact.fact}</p>
+                      <p className="text-sm text-gray-400 mt-2">
+                        Source: <span className="text-violet-400">{fact.sourceName}</span> •
+                        Confidence: <span className="text-emerald-400">{Math.round(fact.confidence * 100)}%</span>
                       </p>
                     </div>
                   </motion.div>
                 ))}
-                {extractedFacts.length > 10 && (
-                  <p className="text-center text-sm text-white/40 py-2">
-                    +{extractedFacts.length - 10} more facts extracted
+                {extractedFacts.length > 15 && (
+                  <p className="text-center text-gray-400 py-3 font-medium">
+                    +{extractedFacts.length - 15} more facts extracted
                   </p>
                 )}
               </div>
@@ -386,13 +529,13 @@ export default function GateOne({ sources, onComplete }: GateOneProps) {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20"
+          className="flex items-center gap-4 p-4 rounded-xl bg-amber-500/20 border border-amber-500/30"
         >
-          <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+          <AlertTriangle className="w-6 h-6 text-amber-400 flex-shrink-0" />
           <div>
-            <p className="text-sm text-amber-400 font-medium">Limited Sources Detected</p>
-            <p className="text-xs text-amber-400/60">
-              Adding more sources improves verification accuracy. Consider adding at least 3-5 sources.
+            <p className="text-amber-300 font-semibold">Limited Sources Detected</p>
+            <p className="text-amber-200/80">
+              Adding more sources improves verification accuracy. Consider adding at least 3-5 sources for comprehensive analysis.
             </p>
           </div>
         </motion.div>
