@@ -31,12 +31,12 @@ export default function Button({
 
   const variants = {
     primary:
-      'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40',
+      'bg-white text-black hover:bg-[#f0f0f0] shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:-translate-y-0.5',
     secondary:
-      'bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20 hover:border-white/30',
+      'bg-white/[0.05] backdrop-blur-sm text-white border border-white/10 hover:bg-white/10 hover:border-violet-500/30 hover:-translate-y-0.5',
     ghost: 'bg-transparent text-white/70 hover:text-white hover:bg-white/10',
     danger:
-      'bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-500 hover:to-rose-500 shadow-lg shadow-red-500/25',
+      'bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-500 hover:to-rose-500 shadow-lg shadow-red-500/25 hover:-translate-y-0.5',
   };
 
   const sizes = {

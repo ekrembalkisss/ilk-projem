@@ -26,27 +26,34 @@ export default function Card({
     <motion.div
       onClick={onClick}
       className={`
-        relative rounded-2xl overflow-hidden
+        relative rounded-[20px] overflow-hidden
         ${gradient
-          ? 'bg-gradient-to-br from-slate-800/90 to-slate-900/95'
-          : 'bg-slate-800/80'}
-        ${hover ? 'cursor-pointer hover:bg-slate-700/80' : ''}
-        ${selected ? 'ring-2 ring-violet-500 ring-offset-2 ring-offset-slate-900' : ''}
-        ${glow ? 'shadow-2xl shadow-violet-500/20' : 'shadow-xl shadow-black/20'}
+          ? 'bg-gradient-to-br from-[rgba(20,20,30,0.9)] to-[rgba(10,10,15,0.95)]'
+          : 'bg-[rgba(15,15,20,0.8)] backdrop-blur-[20px]'}
+        border border-white/[0.08]
+        ${hover ? 'cursor-pointer' : ''}
+        ${selected ? 'ring-2 ring-violet-500/50 border-violet-500/30' : ''}
+        ${glow ? 'shadow-[0_4px_24px_rgba(0,0,0,0.4),0_0_60px_rgba(139,92,246,0.15)]' : 'shadow-[0_4px_24px_rgba(0,0,0,0.4)]'}
+        transition-all duration-300
         ${className}
       `}
-      whileHover={hover ? { scale: 1.02, y: -4 } : {}}
-      whileTap={onClick ? { scale: 0.98 } : {}}
+      whileHover={hover ? {
+        scale: 1.01,
+        y: -2,
+        boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(139,92,246,0.2)',
+        borderColor: 'rgba(139,92,246,0.25)'
+      } : {}}
+      whileTap={onClick ? { scale: 0.99 } : {}}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      {/* Border effect */}
-      <div className="absolute inset-0 rounded-2xl border border-violet-500/20 pointer-events-none" />
+      {/* Inner glow border */}
+      <div className="absolute inset-0 rounded-[20px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)] pointer-events-none" />
 
-      {/* Gradient overlay for glow */}
+      {/* Gradient glow effect */}
       {glow && (
-        <div className="absolute -inset-1 bg-gradient-to-r from-violet-600/30 via-indigo-600/30 to-purple-600/30 rounded-2xl blur-xl opacity-60" />
+        <div className="absolute -inset-[1px] bg-gradient-to-br from-violet-500/30 via-transparent to-indigo-500/30 rounded-[21px] -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       )}
 
       <div className="relative z-10">{children}</div>

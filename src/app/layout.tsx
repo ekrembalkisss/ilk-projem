@@ -20,8 +20,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className="font-sans antialiased premium-bg grid-pattern noise-texture">
-        {children}
+      <body className="font-sans antialiased">
+        {/* Animated Beam Background */}
+        <div className="beam-container">
+          <div className="beam beam-1"></div>
+          <div className="beam beam-2"></div>
+          <div className="beam beam-3"></div>
+          <div className="beam beam-4"></div>
+          <div className="beam beam-5"></div>
+        </div>
+        <div className="vignette"></div>
+
+        {/* Main Content */}
+        <main className="relative z-10">
+          {children}
+        </main>
       </body>
     </html>
   );
