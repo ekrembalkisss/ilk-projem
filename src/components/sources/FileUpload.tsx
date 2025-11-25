@@ -27,21 +27,35 @@ export default function FileUpload({ onSourcesAdd, existingSources }: FileUpload
 
   // Process file via server-side API for .docx and other complex formats
   const processFileViaAPI = async (file: File): Promise<string> => {
+    console.log('FileUpload: Sending to API:', file.name, file.type, file.size);
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch('/api/process-file', {
-      method: 'POST',
-      body: formData,
-    });
+    try {
+      const response = await fetch('/api/process-file', {
+        method: 'POST',
+        body: formData,
+      });
 
-    const data = await response.json();
+      console.log('FileUpload: API response status:', response.status);
+      const data = await response.json();
+      console.log('FileUpload: API returned content length:', data.content?.length || 0);
 
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to process file');
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process file');
+      }
+
+      // Verify the content is not binary garbage
+      if (data.content && data.content.includes('�')) {
+        console.error('FileUpload: Content appears to be binary garbage!');
+        throw new Error('File extraction failed - binary content detected');
+      }
+
+      return data.content;
+    } catch (error) {
+      console.error('FileUpload: API error:', error);
+      throw error;
     }
-
-    return data.content;
   };
 
   // Process file - use API for binary formats, client-side for plain text only
