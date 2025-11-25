@@ -26,10 +26,16 @@ interface TabConfig {
 
 const tabs: TabConfig[] = [
   {
+    id: 'paste',
+    label: 'Paste Text',
+    icon: <ClipboardPaste className="w-5 h-5" />,
+    description: 'Copy & paste text from any source - recommended!',
+  },
+  {
     id: 'upload',
     label: 'Upload Files',
     icon: <Upload className="w-5 h-5" />,
-    description: 'Upload documents, PDFs, or text files',
+    description: 'Upload .txt, .md, .csv files',
   },
   {
     id: 'web-search',
@@ -43,12 +49,6 @@ const tabs: TabConfig[] = [
     icon: <Layers className="w-5 h-5" />,
     description: 'Comprehensive multi-source analysis',
   },
-  {
-    id: 'paste',
-    label: 'Paste Text',
-    icon: <ClipboardPaste className="w-5 h-5" />,
-    description: 'Manually paste source content',
-  },
 ];
 
 export default function SourceInput({
@@ -56,7 +56,7 @@ export default function SourceInput({
   onSourcesChange,
   onContinue,
 }: SourceInputProps) {
-  const [activeTab, setActiveTab] = useState<SourceType>('upload');
+  const [activeTab, setActiveTab] = useState<SourceType>('paste');
 
   const handleAddSources = (newSources: Source[]) => {
     onSourcesChange([...sources, ...newSources]);
